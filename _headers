@@ -1,0 +1,8 @@
+/images/*
+  Cache-Control: public, max-age=2592000
+/pdfs/*
+  Cache-Control: public, max-age=2592000
+/icons/*
+  Cache-Control: public, max-age=2592000
+/sw.js
+  Cache-Control: no-cache
