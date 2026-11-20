@@ -1,12 +1,14 @@
 
 /* Fonts load after the page is already usable, so a slow connection never blocks the first screen. */
 setTimeout(function(){try{var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap';document.head.appendChild(l)}catch(e){}},400);
+const TESTS = window.TESTS;
 const MINUTES = 30;
 const SECS = MINUTES*60;
 const app = document.getElementById('app');
 const LS = {get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const L = 'ABCDEF';
-/* Picture questions load from images/<name>. */
+let IMGDATA=null;
+/* Picture questions: standalone file keeps every picture inside the page (json block #imgdata); the web version loads img/<name>. */
 function imgSrc(q){ return 'images/'+q.img; }
 let timer=null, S=null;
 
@@ -34,8 +36,10 @@ function masthead(sub,back){
   const btns=h('div',{class:'mbtns'},
     back?h('button',{class:'theme',id:'back-btn',type:'button',on:{click:back}},'\u2190 Back'):null,
     h('button',{class:'theme',id:'theme-btn',type:'button',on:{click:toggleTheme}},'Theme'));
-  return h('div',{class:'mast'},h('div',{class:'wrap'},
-    h('div',{class:'brand'},svgBox('badge',BADGE),h('div',{},h('h1',{},'Mission Commission'),h('p',{},sub))),btns));
+  const lg=h('button',{class:'mlogo',id:'home-logo',type:'button','aria-label':'Mission Commission home',on:{click:()=>intro()}},
+    h('img',{src:LOGO_S,alt:'',width:'64',height:'64',draggable:'false'}));
+  return h('div',{class:'mast'},adminBtn(),h('div',{class:'wrap'},
+    h('div',{class:'brand'},lg,h('div',{},h('h1',{},'Mission Commission'),h('p',{},sub))),btns));
 }
 function toggleTheme(){
   const r=document.documentElement;
@@ -59,10 +63,12 @@ const SECTIONS=[
   {id:'paf',name:'PAF (Pakistan Air Force)',short:'PAF',tests:i=>!!TESTS[i].shared,defPart:'verbal',parts:PARTS},
   {id:'scc',name:'SCC (Short Commission Course)',short:'SCC',tests:i=>!!TESTS[i].shared,defPart:'verbal',parts:PARTS},
   {id:'pma',name:'PMA (Pakistan Military Academy)',short:'PMA',tests:i=>!!TESTS[i].shared,defPart:'verbal',parts:PARTS}];
-const FILES={"tcc": [{"name": "TCC English Most Repeated MCQs", "path": "pdfs/TCC-English-Most-Repeated-MCQs.pdf", "note": "PDF  |  23 pages  |  143 KB"}, {"name": "TCC Top Physics Questions", "path": "pdfs/TCC-Top-Physics-Questions.pdf", "note": "PDF  |  14 pages  |  147 KB"}, {"name": "TCC Physics Important Questions", "path": "pdfs/TCC-Physics-Important-Questions.pdf", "note": "PDF  |  9 pages  |  107 KB"}, {"name": "TCC37 Previously Most Repeated Physics", "path": "pdfs/TCC37-Previously-Most-Repeated-Physics.pdf", "note": "PDF  |  15 pages  |  145 KB"}, {"name": "TCC35 Warranted Academic", "path": "pdfs/TCC35-Warranted-Academic.pdf", "note": "PDF  |  15 pages  |  145 KB"}, {"name": "TCC37 Guaranteed Academic", "path": "pdfs/TCC37-Guaranteed-Academic.pdf", "note": "PDF  |  44 pages  |  213 KB"}, {"name": "TCC37 Past Papers Questions", "path": "pdfs/TCC37-Past-Papers-Questions.pdf", "note": "PDF  |  13 pages  |  119 KB"}, {"name": "TCC37 Initial Test Past Papers", "path": "pdfs/TCC37-Initial-Test-Past-Papers.pdf", "note": "PDF  |  9 pages  |  101 KB"}, {"name": "TCC Initial Test Academic Questions", "path": "pdfs/TCC-Initial-Test-Academic-Questions.pdf", "note": "PDF  |  5 pages  |  37 KB"}, {"name": "TCC Math and Chemistry Most Repeated", "path": "pdfs/TCC-Math-Chemistry-Most-Repeated.pdf", "note": "PDF  |  11 pages  |  56 KB"}, {"name": "TCC37 Guaranteed Verbal", "path": "pdfs/TCC37-Guaranteed-Verbal.pdf", "note": "PDF  |  12 pages  |  119 KB"}, {"name": "Maths Definitions HSSC-I (FSc Part 1)", "path": "pdfs/Definition-Maths-HSSC-I.pdf", "note": "PDF  |  10 pages  |  191 KB"}, {"name": "Maths Definitions HSSC-II (FSc Part 2)", "path": "pdfs/Definition-Maths-HSSC-II.pdf", "note": "PDF  |  6 pages  |  159 KB"}]};
+const FILES=window.FILES;
 /* ---------- Course access (WhatsApp request -> owner-signed unlock code, 30 days per course) ---------- */
 const PUBKEY={kty:'EC',crv:'P-256',x:'B9zNDyali6CUTAOBnnvAhDmsU7bbpVZ7qV6vSuQyKbM',y:'N9ID3D8zQfM920r36i_Wjqo2AQh9GD8BshbI9Rg6mp8',ext:true};
-const OWNER_WA='923187504964', ACCESS_DAYS=30;
+const OWNER_WA='923187504964', OWNER_SHOW='0318 7504964', ACCESS_DAYS=30;
+const waLink=m=>'https://api.whatsapp.com/send?phone='+OWNER_WA+'&text='+encodeURIComponent(m);
+const waWebLink=m=>'https://web.whatsapp.com/send?phone='+OWNER_WA+'&text='+encodeURIComponent(m);
 const B64={dec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}};
 let MEMDEV=null;
 function deviceId(){
@@ -94,14 +100,15 @@ async function checkCode(raw,id){
     if(!good)return {ok:false,msg:'This code is not valid.'};
     const p=new TextDecoder().decode(body).split('|');
     const c=p[0], d=p[1], iss=+p[2], exp=+p[3];
-    if(c!==id)return {ok:false,msg:'This code is for a different course.'};
+    if(!SECTIONS.some(s=>s.id===c))return {ok:false,msg:'This code is not valid.'};
+    if(id&&c!==id)return {ok:false,msg:'This code is for a different course.'};
     if(d!==deviceId())return {ok:false,msg:'This code was issued for another device. Send a new request from this device.'};
     if(!(exp>iss)||exp-iss>32*86400)return {ok:false,msg:'This code is not valid.'};
     if(Date.now()>=exp*1000)return {ok:false,msg:'This code has expired. Send a new request.'};
     if(Date.now()<iss*1000-86400000)return {ok:false,msg:'Your device clock looks wrong. Fix the date and time, then try again.'};
-    const all=LS.get('mc-access')||{};all[id]={d,iss,exp};LS.set('mc-access',all);
+    const all=LS.get('mc-access')||{};all[c]={d,iss,exp};LS.set('mc-access',all);
     LS.set('mc-seen',Math.max(LS.get('mc-seen')||0,Date.now()));
-    return {ok:true,exp};
+    return {ok:true,exp,id:c};
   }catch(e){return {ok:false,msg:'Could not check the code. Try again.'}}
 }
 const fmtDate=s=>new Date(s*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
@@ -110,12 +117,12 @@ function lock(id){
   const sec=SECTIONS.find(s=>s.id===id), info=accessInfo(id), dev=deviceId();
   const reqCode='MC-'+id.toUpperCase()+'-'+dev;
   const msg='Assalam o Alaikum. I would like access to *'+sec.name+'* on Mission Commission.\nRequest code: '+reqCode;
-  const wa='https://wa.me/'+OWNER_WA+'?text='+encodeURIComponent(msg);
+  const wa=waLink(msg), waWeb=waWebLink(msg);
   const note=info.s==='expired'?'Your 30-day access to this course ended on '+fmtDate(info.exp)+'. Send a new request to continue.':
     info.s==='clock'?'Your device clock was set back. Access is paused. Send a new request to continue.':
     'This course needs the owner’s permission. Access lasts 30 days.';
   const out=h('div',{class:'lockmsg',id:'lock-msg','aria-live':'polite'});
-  const inp=h('input',{type:'text',id:'code-in',class:'codein',placeholder:'MC1.…  paste unlock code',autocomplete:'off',autocapitalize:'off',spellcheck:'false','aria-label':'Unlock code'});
+  const inp=h('input',{type:'text',id:'code-in',class:'codein',placeholder:'MC1.…  or paste code here',autocomplete:'off',autocapitalize:'off',spellcheck:'false','aria-label':'Unlock code'});
   const go=async()=>{
     out.className='lockmsg';out.textContent='Checking…';
     const r=await checkCode(inp.value,id);
@@ -134,9 +141,10 @@ function lock(id){
       h('p',{class:'locknote'},note),
       h('ol',{class:'locksteps'},
         h('li',{},h('b',{},'Request. '),'Tap the button. WhatsApp opens with your request already written. Send it.'),
-        h('li',{},h('b',{},'Wait. '),'The owner replies with an unlock code, or declines.'),
-        h('li',{},h('b',{},'Unlock. '),'Copy the code from WhatsApp and paste it below.')),
-      h('div',{class:'lockacts'},h('a',{class:'btn',id:'wa-req',href:wa,target:'_blank',rel:'noopener'},'Request on WhatsApp'),copy),
+        h('li',{},h('b',{},'Wait. '),'The owner replies on WhatsApp with an access link, or declines.'),
+        h('li',{},h('b',{},'Unlock. '),'Tap the link. The course opens by itself. If the link does not open the app, paste its code below.')),
+      h('div',{class:'lockacts'},h('a',{class:'btn',id:'wa-req',href:wa,target:'_blank',rel:'noopener'},'Request on WhatsApp'),h('a',{class:'btn ghost',id:'wa-web',href:waWeb,target:'_blank',rel:'noopener'},'WhatsApp Web'),copy),
+      h('p',{class:'label',style:'display:block;margin:0 0 8px'},'Owner number: '+OWNER_SHOW+'. You do not need to save it. If WhatsApp does not open, send the request text below to this number.'),
       h('textarea',{id:'req-text',class:'reqtext',readonly:'readonly',rows:'2','aria-label':'Request message'},msg),
       h('div',{class:'lockrow'},inp,ub),out,
       h('p',{class:'label lockdev'},'Device '+dev+'  ·  Access is tied to this device and course')));
@@ -159,20 +167,197 @@ function home(){
       h('button',{class:'btn',type:'button',id:'sec-'+sec.id,on:{click:()=>section(sec.id,'tests')}},ai.s==='ok'?'Enter':'Request access')));
   });
   nodes.splice(1,0,(function(){const d=svgBox('banner',BANNER);d.appendChild(h('div',{class:'txt'},'Prepare. Train. Commission.'));return d})());
+  const u=LS.get('mc-user');
+  if(u)nodes.push(h('p',{class:'locknote',id:'welcome',style:'margin:10px 0 0'},'Welcome, '+u+'.'));
   nodes.push(grid);
-  nodes.push(h('p',{class:'label sitefoot'},'Free practice tests. Your answers and scores stay on this device. ',h('a',{href:'privacy.html'},'Privacy')));
-  const run=savedRun();
-  if(run){
-    const t=TESTS[run.i], left=Math.max(0,Math.ceil((run.end-Date.now())/1000));
-    nodes.splice(2,0,h('div',{class:'resume',id:'resume-box'},
-      h('div',{},h('b',{},'Test in progress: '+t.sub),h('span',{class:'label'},left>0?'Time left '+fmt(left):'Time is up. Your saved answers will be marked.')),
-      h('div',{class:'nav'},
-        h('button',{class:'btn ghost',type:'button',id:'discard-run',on:{click:()=>{dropRun();home()}}},'Discard'),
-        h('button',{class:'btn',type:'button',id:'resume-run',on:{click:()=>resume(run)}},left>0?'Resume':'See result'))));
-  }
   mount(...nodes);
 }
 
+/* ---------- Logo, intro, student login, admin ---------- */
+const LOGO_L='icons/logo-460.webp', LOGO_S='icons/logo-120.webp';
+const ADMIN_WRAP=window.ADMIN_WRAP;
+const WA_SVG='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 0 0-8.1 14.5L2.6 21.4l4.5-1.2A9.5 9.5 0 1 0 12 2.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M8.6 7.6c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.5l.7 1.7c.1.2 0 .4-.1.5l-.5.6c-.1.2-.1.3 0 .5.5.9 1.3 1.7 2.3 2.2.2.1.4.1.5-.1l.7-.8c.1-.2.3-.2.5-.1l1.7.8c.2.1.3.2.3.4 0 .5-.3 1.1-.8 1.5-.6.4-1.4.5-2.4.1-2.2-.8-3.9-2.5-4.7-4.5-.4-1-.2-2 .1-2.9z" fill="currentColor"/></svg>';
+const KEY_SVG='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2" fill="currentColor"/><path d="M12 12v4" stroke="currentColor" stroke-width="2"/></svg>';
+function adminBtn(){
+  const b=h('button',{class:'admin',id:'admin-btn',type:'button','aria-label':'Admin',on:{click:adminLogin}});
+  b.innerHTML=KEY_SVG+'<span>Admin</span>';return b;
+}
+function wmark(){return h('img',{class:'wm',src:LOGO_L,alt:'','aria-hidden':'true',width:'300',height:'300'})}
+function sealImg(cls,src,px){return h('img',{class:cls,src:src||LOGO_S,alt:'Mission Commission logo',width:String(px||96),height:String(px||96),draggable:'false'})}
+
+function intro(){
+  const name=LS.get('mc-user');
+  const wa=waLink('Assalam o Alaikum. I want to join Mission Commission and need course access.\nDevice: '+deviceId());
+  const title=h('h1',{class:'it','aria-label':'Mission Commission'});
+  let n=0;
+  ['MISSION','COMMISSION'].forEach(w=>{
+    const line=h('span',{class:'itl','aria-hidden':'true'});
+    w.split('').forEach(ch=>line.appendChild(h('span',{class:'ch',style:'animation-delay:'+(0.7+0.05*n++)+'s'},ch)));
+    title.appendChild(line);
+  });
+  const stars=h('div',{class:'stars','aria-hidden':'true'});
+  for(let i=0;i<16;i++)stars.appendChild(h('i',{style:'left:'+((i*37+11)%96)+'%;top:'+((i*53+7)%92)+'%;animation-delay:'+((i%7)*0.45)+'s;--s:'+(6+(i%4)*3)+'px'}));
+  const wa_btn=h('a',{class:'btn ibtn wa',id:'intro-wa',href:wa,target:'_blank',rel:'noopener'});
+  wa_btn.innerHTML=WA_SVG+'<span>WhatsApp</span>';
+  const root=h('div',{class:'intro-pg',id:'intro'},
+    stars,
+    (function(){const b=adminBtn();return b})(),
+    h('div',{class:'emblem'},h('span',{class:'ring r1'}),h('span',{class:'ring r2'}),
+      h('img',{class:'logo-big',src:LOGO_L,alt:'Mission Commission logo',width:'460',height:'460',draggable:'false'})),
+    title,
+    h('p',{class:'is'},'ISSB preparation for armed forces'),
+    h('p',{class:'iq'},'Prepare today, lead tomorrow'),
+    h('div',{class:'iacts'},wa_btn,
+      h('button',{class:'btn ibtn lg',id:'intro-login',type:'button',on:{click:login}},name?'Login':'Login')),
+    h('button',{class:'ilink',id:'intro-browse',type:'button',on:{click:home}},name?'Welcome back, '+name+'. Browse courses':'Browse courses'),
+    h('a',{class:'ilink iprivacy',href:'privacy.html',id:'intro-privacy'},'Privacy'),
+    h('div',{class:'istripe','aria-hidden':'true'}));
+  mount(root);
+}
+
+function login(){
+  const hasAny=SECTIONS.some(s=>hasAccess(s.id));
+  const nameIn=h('input',{type:'text',id:'login-name',class:'codein',placeholder:'Your name',autocomplete:'name','aria-label':'Your name',value:LS.get('mc-user')||''});
+  const codeIn=h('input',{type:'text',id:'login-code',class:'codein',placeholder:hasAny?'Unlock code (optional)':'Unlock code from the owner',autocomplete:'off',autocapitalize:'off',spellcheck:'false','aria-label':'Unlock code'});
+  const out=h('div',{class:'lockmsg',id:'login-msg','aria-live':'polite'});
+  const go=async()=>{
+    const nm=nameIn.value.trim().replace(/\s+/g,' ');
+    out.className='lockmsg';
+    if(nm.length<2){out.className='lockmsg bad';out.textContent='Enter your name.';return}
+    if(!codeIn.value.trim()){
+      if(hasAny){LS.set('mc-user',nm);home();return}
+      out.className='lockmsg bad';out.textContent='Enter the unlock code the owner sent you. No code yet? Request a course on WhatsApp.';return;
+    }
+    out.textContent='Checking…';
+    const r=await checkCode(codeIn.value,null);
+    if(r.ok){LS.set('mc-user',nm);out.className='lockmsg good';out.textContent='Welcome, '+nm+'. Access granted until '+fmtDate(r.exp)+'.';setTimeout(()=>section(r.id,'tests'),800)}
+    else{out.className='lockmsg bad';out.textContent=r.msg}
+  };
+  [nameIn,codeIn].forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')go()}));
+  mount(masthead('Student login',intro),
+    h('div',{class:'lockcard logincard'},
+      sealImg('seal',LOGO_L,110),
+      h('h2',{},'Login'),
+      h('p',{class:'locknote'},'Tap the access link the owner sent on WhatsApp and the course opens by itself. If you only have a code, enter your name and the code here.'),
+      nameIn,codeIn,
+      h('div',{class:'lockacts',style:'margin-top:12px'},
+        h('button',{class:'btn',type:'button',id:'login-go',on:{click:go}},'Login'),
+        h('button',{class:'btn ghost',type:'button',id:'login-browse',on:{click:home}},'Request a course')),
+      out,
+      h('p',{class:'label lockdev'},'Device '+deviceId()+'  ·  Codes work on the device that requested them')));
+}
+
+/* ---------- Admin (credentials decrypt the signing key, nothing is stored in the app) ---------- */
+let ADMINKEY=null;
+const u64=u=>btoa(String.fromCharCode(...u)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function adminUnlock(user,pass){
+  const norm=String(pass).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(user).trim().toLowerCase()+'|'+norm),'PBKDF2',false,['deriveKey']);
+  const k=await crypto.subtle.deriveKey({name:'PBKDF2',salt:B64.dec(ADMIN_WRAP.salt),iterations:ADMIN_WRAP.it,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:B64.dec(ADMIN_WRAP.iv)},k,B64.dec(ADMIN_WRAP.ct));
+  return crypto.subtle.importKey('jwk',JSON.parse(new TextDecoder().decode(pt)),{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+}
+function adminLogin(){
+  if(ADMINKEY){adminPanel();return}
+  const uIn=h('input',{type:'text',id:'adm-user',class:'codein',placeholder:'Username',autocomplete:'username',autocapitalize:'off',spellcheck:'false','aria-label':'Admin username'});
+  const pIn=h('input',{type:'password',id:'adm-pass',class:'codein',placeholder:'Password',autocomplete:'current-password','aria-label':'Admin password'});
+  const out=h('div',{class:'lockmsg',id:'adm-msg','aria-live':'polite'});
+  const go=async()=>{
+    const f=LS.get('mc-adm-fail')||{n:0,t:0}, now=Date.now();
+    if(f.n>=5&&now<f.t+60000){out.className='lockmsg bad';out.textContent='Too many attempts. Wait a minute and try again.';return}
+    if(!(window.crypto&&crypto.subtle)){out.className='lockmsg bad';out.textContent='Open the app in Chrome or Safari to use Admin.';return}
+    out.className='lockmsg';out.textContent='Checking…';
+    try{ADMINKEY=await adminUnlock(uIn.value,pIn.value);LS.set('mc-adm-fail',{n:0,t:0});pIn.value='';adminPanel()}
+    catch(e){const n=(f.n>=5?0:f.n)+1;LS.set('mc-adm-fail',{n,t:Date.now()});out.className='lockmsg bad';out.textContent='Wrong username or password.'}
+  };
+  [uIn,pIn].forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')go()}));
+  mount(masthead('Admin',intro),
+    h('div',{class:'lockcard logincard'},
+      sealImg('seal',LOGO_L,96),
+      h('h2',{},'Admin login'),
+      h('p',{class:'locknote'},'For the owner only. Approve or deny course requests and issue unlock codes.'),
+      uIn,pIn,
+      h('div',{class:'lockacts',style:'margin-top:12px'},h('button',{class:'btn',type:'button',id:'adm-go',on:{click:go}},'Login')),
+      out));
+}
+function adminPanel(){
+  if(!ADMINKEY){adminLogin();return}
+  const NAMES={};SECTIONS.forEach(s=>NAMES[s.id]=s.name);
+  let cur=null;
+  const req=h('textarea',{id:'adm-req',class:'reqtext',rows:'3',style:'margin-top:8px',placeholder:'Paste the student’s WhatsApp message or the request code (MC-TCC-ABCDE)','aria-label':'Student request'});
+  const info=h('div',{class:'lockmsg',id:'adm-info'});
+  const days=h('input',{type:'number',id:'adm-days',class:'codein',value:'30',min:'1',max:'31','aria-label':'Days of access',style:'max-width:110px;flex:0 0 110px'});
+  const linkIn=h('input',{type:'text',id:'adm-link',class:'codein',placeholder:'https://your-site.netlify.app',autocapitalize:'off',spellcheck:'false','aria-label':'App website link',value:LS.get('mc-applink')||(/^https?:/.test(location.href)?location.href.split('#')[0]:'')});
+  const out=h('textarea',{id:'adm-out',class:'reqtext',rows:'4',readonly:'readonly','aria-label':'Reply to send',style:'margin-top:12px'});
+  const outbox=h('div',{hidden:true},out);
+  const status=h('div',{class:'lockmsg',id:'adm-status','aria-live':'polite'});
+  const wa=h('a',{class:'btn ghost',id:'adm-wa',href:'#',target:'_blank',rel:'noopener'},'Open WhatsApp');
+  const copy=h('button',{class:'btn ghost',type:'button',id:'adm-copy',on:{click:()=>{try{navigator.clipboard.writeText(out.value).then(()=>{copy.textContent='Copied'},()=>{})}catch(e){}out.focus();out.select()}}},'Copy reply');
+  outbox.appendChild(h('div',{class:'lockacts'},copy,wa));
+  const allow=h('button',{class:'btn',type:'button',id:'adm-allow',on:{click:doAllow}},'Allow');
+  const deny=h('button',{class:'btn danger',type:'button',id:'adm-deny',on:{click:doDeny}},'Deny');
+  allow.disabled=deny.disabled=true;
+  const logBox=h('div',{class:'admlog',id:'adm-log'});
+  function drawLog(){
+    const l=LS.get('mc-log')||[];logBox.textContent='';
+    if(!l.length){logBox.appendChild(h('p',{class:'label'},'No approvals yet on this device.'));return}
+    const t=h('table',{class:'admtab'},h('tr',{},h('th',{},'Course'),h('th',{},'Device'),h('th',{},'Until')));
+    l.slice(0,15).forEach(x=>t.appendChild(h('tr',{},h('td',{},NAMES[x.id]||x.id),h('td',{},x.dev),h('td',{},fmtDate(x.exp)))));
+    logBox.appendChild(t);
+  }
+  function show(text){out.value=text;outbox.hidden=false;wa.href='https://wa.me/?text='+encodeURIComponent(text)}
+  req.addEventListener('input',()=>{
+    const m=req.value.toUpperCase().match(/MC-([A-Z]+)-([A-HJ-NP-Z2-9]{5})/);
+    cur=null;allow.disabled=deny.disabled=true;outbox.hidden=true;status.textContent='';
+    if(!m){info.className='lockmsg';info.textContent=req.value?'No request code found.':'';return}
+    const id=m[1].toLowerCase();
+    if(!NAMES[id]){info.className='lockmsg bad';info.textContent='Unknown course in code.';return}
+    cur={id,dev:m[2]};info.className='lockmsg';info.textContent='Course: '+NAMES[id]+'   Device: '+m[2];allow.disabled=deny.disabled=false;
+  });
+  async function doAllow(){
+    if(!cur)return;
+    const d=Math.min(31,Math.max(1,+days.value||30)),iss=Math.floor(Date.now()/1000),exp=iss+d*86400;
+    const body=new TextEncoder().encode([cur.id,cur.dev,iss,exp].join('|'));
+    const sig=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},ADMINKEY,body));
+    const code='MC1.'+u64(body)+'.'+u64(sig), base=linkIn.value.trim().split('#')[0];
+    if(base)LS.set('mc-applink',base);
+    show('Allowed ✅ '+NAMES[cur.id]+' is unlocked for '+d+' days (until '+fmtDate(exp)+').\n'+(base?'Tap this link to unlock:\n'+base+'#unlock='+code:'Open the app, press Login, paste this code and continue:\n'+code));
+    const log=LS.get('mc-log')||[];log.unshift({id:cur.id,dev:cur.dev,exp,days:d});LS.set('mc-log',log.slice(0,50));drawLog();
+    status.className='lockmsg good';status.textContent='Code created. Send it to the student.';
+  }
+  function doDeny(){if(!cur)return;show('Sorry, your request for '+NAMES[cur.id]+' was not approved.');status.className='lockmsg bad';status.textContent='Denied. No code created.'}
+  drawLog();
+  mount(masthead('Admin tool',home),
+    h('div',{class:'lockcard admincard'},
+      h('h2',{},'Course requests'),
+      h('p',{class:'locknote'},'Paste the request the student sent on WhatsApp, then allow or deny.'),
+      req,info,
+      h('div',{class:'lockrow',style:'align-items:center;margin-top:6px'},h('label',{class:'label',for:'adm-days'},'Days of access'),days),
+      h('label',{class:'label',for:'adm-link',style:'display:block;margin-top:10px'},'App website link (sent to the student)'),linkIn,
+      h('div',{class:'lockacts',style:'margin-top:12px'},allow,deny),status,outbox),
+    h('div',{class:'lockcard admincard'},h('h2',{},'Recent approvals'),logBox,
+      h('div',{class:'lockacts',style:'margin-top:12px'},h('button',{class:'btn ghost',type:'button',id:'adm-lock',on:{click:()=>{ADMINKEY=null;intro()}}},'Lock admin'))));
+}
+
+async function unlockFromHash(){
+  const m=(location.hash||'').match(/^#unlock=(MC1\.[A-Za-z0-9_.-]+)/);
+  if(!m)return false;
+  try{history.replaceState(null,'',location.href.split('#')[0])}catch(e){}
+  const msg=h('div',{class:'lockmsg',id:'link-msg','aria-live':'polite'},'One moment\u2026');
+  const card=h('div',{class:'lockcard logincard'},sealImg('seal',LOGO_L,108),h('h2',{},'Checking your access'),msg);
+  mount(masthead('Access link',intro),card);
+  const r=await checkCode(m[1],null);
+  if(r.ok){
+    const nm=SECTIONS.find(s=>s.id===r.id).name;
+    msg.className='lockmsg good';msg.textContent=nm+' is unlocked until '+fmtDate(r.exp)+'.';
+    setTimeout(()=>section(r.id,'tests'),1300);
+  }else{
+    msg.className='lockmsg bad';msg.textContent=r.msg+' Open the link in the same browser you used to send the request, or request again.';
+    card.appendChild(h('div',{class:'lockacts',style:'margin-top:12px'},h('button',{class:'btn',type:'button',id:'link-home',on:{click:()=>intro()}},'Open the app')));
+  }
+  return true;
+}
+window.addEventListener('hashchange',()=>{if(/^#unlock=/.test(location.hash))unlockFromHash()});
 function openFile(f,dl){
   try{
     const bin=atob(f.b64),u8=new Uint8Array(bin.length);
@@ -191,13 +376,12 @@ function section(id,tab){
   curTab=tab;
   const allIdx=secIdx(sec);
   const inPart=(i,p)=>(TESTS[i].part||sec.defPart)===p;
-  const parts=sec.parts?sec.parts.filter(p=>allIdx.some(i=>inPart(i,p.id))):null;
   const idxs=sec.parts&&tab!=='files'?allIdx.filter(i=>inPart(i,tab)):allIdx;
   const saved=LS.get('issb-results')||{};
-  const nodes=[masthead(sec.name,home),
+  const nodes=[masthead(sec.name,home),wmark(),
     h('div',{class:'filters'},
       h('button',{class:'chip',type:'button',id:'back-courses',on:{click:home}},'All courses'),
-      ...(parts?parts.map(p=>h('button',{class:'chip',type:'button',id:'tab-'+p.id,'aria-pressed':tab===p.id,on:{click:()=>section(id,p.id)}},p.name+' ('+allIdx.filter(i=>inPart(i,p.id)).length+')'))
+      ...(sec.parts?sec.parts.map(p=>h('button',{class:'chip',type:'button',id:'tab-'+p.id,'aria-pressed':tab===p.id,on:{click:()=>section(id,p.id)}},p.name+' ('+allIdx.filter(i=>inPart(i,p.id)).length+')'))
         :[h('button',{class:'chip',type:'button',id:'tab-tests','aria-pressed':tab==='tests',on:{click:()=>section(id,'tests')}},'Tests ('+idxs.length+')')]),
       h('button',{class:'chip',type:'button',id:'tab-files','aria-pressed':tab==='files',on:{click:()=>section(id,'files')}},'Files ('+files.length+')'),
       h('span',{class:'label accl on',id:'acc-left'},'Access: '+accessInfo(id).left+' days left'))];
@@ -246,7 +430,7 @@ function section(id,tab){
     h('ul',{},h('li',{},'Each test runs on a '+MINUTES+' minute clock. It submits itself when the clock reaches zero.'),
       h('li',{},'You may leave any question unattempted. Unattempted questions score zero and are listed in your results.'),
       h('li',{},'1 mark for each correct answer. Nothing is deducted for a wrong answer.'),
-      h('li',{},'Keys: number keys or A to E to answer, left and right arrows to move, F to flag.'))));
+      h('li',{},'Keys: number or letter keys to answer, left and right arrows to move, F to flag.'))));
   mount(...nodes);
 }
 
@@ -256,6 +440,7 @@ function briefing(i){
   const n=TESTS.filter((x,j)=>x.sub===t.sub&&j<=i).length;
   mount(masthead('Mission briefing',()=>section(curSec,curTab)),
     h('div',{class:'group'},
+      sealImg('seal',LOGO_L,108),
       h('h2',{},h('span',{},t.sub+' Test '+pad(n)),h('span',{class:'label'},t.qs.length+' questions  |  '+MINUTES+' min')),
       h('p',{},'Read each question and mark one option. Leave a question blank if you are unsure. You can flag questions and return to them before the clock runs out.'),
       h('p',{},'The clock starts the moment you press Start.'),
@@ -268,29 +453,10 @@ function briefing(i){
 function start(i){
   const t=TESTS[i];
   S={i,t,idx:0,ans:new Array(t.qs.length).fill(null),flag:new Array(t.qs.length).fill(false),
-     end:Date.now()+SECS*1000,left:SECS,done:false,sec:curSec,tab:curTab};
+     end:Date.now()+SECS*1000,left:SECS,done:false};
   drawExam();
   timer=setInterval(tick,250);
 }
-/* In-progress test is saved after every change, so a refresh or closed tab does not lose answers. The clock keeps running. */
-const RUN='mc-run';
-function saveRun(){ if(S&&!S.done)LS.set(RUN,{i:S.i,idx:S.idx,ans:S.ans,flag:S.flag,end:S.end,sec:S.sec,tab:S.tab}); }
-function dropRun(){ try{localStorage.removeItem(RUN)}catch(e){} }
-function savedRun(){
-  const r=LS.get(RUN);
-  if(!r||!TESTS[r.i]||!Array.isArray(r.ans)||r.ans.length!==TESTS[r.i].qs.length){if(r)dropRun();return null}
-  return r;
-}
-function resume(r){
-  curSec=r.sec||curSec; curTab=r.tab||curTab;
-  const t=TESTS[r.i];
-  S={i:r.i,t,idx:Math.min(r.idx||0,t.qs.length-1),ans:r.ans,flag:r.flag||new Array(t.qs.length).fill(false),
-     end:r.end,left:Math.max(0,Math.ceil((r.end-Date.now())/1000)),done:false,sec:curSec,tab:curTab};
-  if(S.left<=0){finish(true);return}
-  drawExam();
-  timer=setInterval(tick,250);
-}
-window.addEventListener('beforeunload',e=>{ if(S&&!S.done&&document.getElementById('clock')){e.preventDefault();e.returnValue=''} });
 function title(){const n=TESTS.filter((x,j)=>x.sub===S.t.sub&&j<=S.i).length;return S.t.sub+' Test '+pad(n)}
 function tick(){
   S.left=Math.max(0,Math.ceil((S.end-Date.now())/1000));
@@ -302,7 +468,7 @@ function drawExam(){
   const q=S.t.qs[S.idx], total=S.t.qs.length;
   const answered=S.ans.filter(a=>a!==null).length;
   const bar=h('div',{class:'bar'},h('div',{class:'wrap'},
-    h('div',{class:'t'},h('button',{class:'theme',id:'exit',type:'button',style:'margin-right:10px',on:{click:confirmExit}},'\u2190 Exit'),title()),
+    h('div',{class:'t'},h('button',{class:'theme',id:'exit',type:'button',style:'margin-right:10px',on:{click:confirmExit}},'\u2190 Exit'),h('img',{class:'blogo',src:LOGO_S,alt:'',width:'26',height:'26'}),title()),
     h('div',{class:'clock',id:'clock','aria-live':'off'},fmt(S.left))));
   const prog=h('div',{class:'prog'},h('i',{style:'width:'+(answered/total*100)+'%'}));
   const opts=h('div',{class:'opts'+(q.img?' picopts':''),role:'radiogroup','aria-label':'Answer options'});
@@ -327,7 +493,7 @@ function drawExam(){
     h('div',{class:'legend'},h('span',{class:'a'},'Answered'),h('span',{},'Unattempted'),h('span',{class:'f'},'Flagged')),
     h('div',{class:'count num'},h('span',{},'Answered '+answered),h('span',{},'Left '+(total-answered))),
     h('div',{class:'nav'},h('button',{class:'btn danger',type:'button',id:'submit',style:'width:100%',on:{click:confirmSubmit}},'Submit test')));
-  S.swap=false; saveRun();
+  S.swap=false;
   const nodes=[bar,prog,h('div',{class:'exam'},qbox,pal)];
   const keep=timer;
   setKids(nodes); timer=keep;
@@ -340,7 +506,7 @@ function confirmExit(){
     h('p',{},'Your answers and your score for this attempt will be lost.'),
     h('div',{class:'row'},
       h('button',{class:'btn ghost',type:'button',id:'stay',on:{click:()=>document.getElementById('veil').remove()}},'Stay'),
-      h('button',{class:'btn danger',type:'button',id:'leave',on:{click:()=>{document.getElementById('veil').remove();S.done=true;clearInterval(timer);dropRun();section(curSec,curTab)}}},'Leave test'))));
+      h('button',{class:'btn danger',type:'button',id:'leave',on:{click:()=>{document.getElementById('veil').remove();S.done=true;clearInterval(timer);section(curSec,curTab)}}},'Leave test'))));
   document.body.appendChild(v); document.getElementById('stay').focus();
 }
 function confirmSubmit(){
@@ -357,19 +523,18 @@ function confirmSubmit(){
 }
 document.addEventListener('keydown',e=>{
   if(!S||S.done||!document.getElementById('clock')||document.getElementById('veil'))return;
-  if(e.ctrlKey||e.metaKey||e.altKey)return;
   const k=e.key.toLowerCase();
   const nopt=S.t.qs[S.idx].o.length;
-  if(k==='f'){S.flag[S.idx]=!S.flag[S.idx];drawExam()}
-  else if(k.length===1&&'123456789'.includes(k)&&+k<=nopt)choose(+k-1);
-  else if(k.length===1&&'abcde'.includes(k)&&'abcde'.indexOf(k)<nopt)choose('abcde'.indexOf(k));
+  if(k.length===1&&'123456'.includes(k)&&+k<=nopt)choose(+k-1);
+  else if(k.length===1&&'abcdef'.includes(k)&&'abcdef'.indexOf(k)<nopt)choose('abcdef'.indexOf(k));
   else if(k==='arrowright'&&S.idx<S.t.qs.length-1)go(S.idx+1);
   else if(k==='arrowleft'&&S.idx>0)go(S.idx-1);
+  else if(k==='f'){S.flag[S.idx]=!S.flag[S.idx];drawExam()}
 });
 
 /* ---------- RESULTS ---------- */
 function finish(auto){
-  if(S.done)return; S.done=true; clearInterval(timer); dropRun();
+  if(S.done)return; S.done=true; clearInterval(timer);
   const v=document.getElementById('veil'); if(v)v.remove();
   const used=SECS-S.left;
   const qs=S.t.qs; let ok=0,bad=0,none=0;
@@ -390,6 +555,7 @@ function results(filter){
   const verdict=pct>=80?'Outstanding':pct>=65?'Well done':pct>=50?'Pass. Keep drilling':'Below standard. Retrain';
   const seg=(v,c)=>h('i',{style:'width:'+(v/n*100)+'%;background:var(--'+c+')'});
   const top=[masthead('Debrief  |  '+title(),()=>section(curSec,curTab)),
+    sealImg('stamp',LOGO_L,84),
     h('div',{class:'score'},
       h('div',{class:'big num'},h('span',{class:'n'},String(ok)),h('small',{},' / '+n)),
       h('div',{},h('div',{class:'verdict'},verdict),
@@ -432,4 +598,6 @@ function results(filter){
   mount(...top,...list,foot);
   if(filter==='all'&&!S.counted){S.counted=true;countUp(document.querySelector('.big .n'),ok)}
 }
-home();
+unlockFromHash().then(d=>{if(!d)intro()});
+
+if('serviceWorker' in navigator && /^https?:/.test(location.protocol)){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}

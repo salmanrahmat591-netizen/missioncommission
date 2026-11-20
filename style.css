@@ -1,5 +1,4 @@
-html{color-scheme:light}body{margin:0;font-size:16px;padding-left:16px;padding-right:16px}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){color-scheme:dark}}
+
 /* Layout: one centred field-manual column. Briefing board (test list) -> exam screen with sticky timer bar and slide-out roll-call palette -> debrief. */
 :root{
   --bg:#e4e0cb; --panel:#f1eedd; --ink:#1d2514; --muted:#5b6247; --line:#b8b38d;
@@ -210,10 +209,55 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 .lockrow{display:flex;gap:10px;flex-wrap:wrap}.codein{flex:1 1 220px;min-height:44px;box-sizing:border-box;padding:8px 10px;font:inherit;border:2px solid var(--ink);background:transparent;color:var(--ink)}
 .lockmsg{min-height:1.4em;margin-top:10px;font-weight:600}.lockmsg.bad{color:var(--bad)}.lockmsg.good{color:var(--olive)}
 .lockdev{margin:14px 0 0;display:block}
+/* ---- logo, intro, admin ---- */
+:root{--ig1:#05200e;--ig2:#0c3a1c;--ig3:#17582f;--gold:#d8b45a;--gold2:#f3e0a0;--ipaper:#f1eedd}
+@keyframes mcspin{to{transform:rotate(360deg)}}
+@keyframes emblemIn{from{opacity:0;transform:scale(.35) rotate(-28deg)}60%{opacity:1}to{opacity:1;transform:none}}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(216,180,90,0),0 10px 30px rgba(0,0,0,.5)}50%{box-shadow:0 0 34px 6px rgba(216,180,90,.42),0 10px 30px rgba(0,0,0,.5)}}
+@keyframes letterUp{from{opacity:0;transform:translateY(28px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes twk{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:.85;transform:scale(1.1)}}
+@keyframes shine{from{background-position:160% 0}to{background-position:-60% 0}}
+@keyframes stampIn{0%{opacity:0;transform:scale(2.6) rotate(-20deg)}55%{opacity:1;transform:scale(.92) rotate(3deg)}100%{opacity:1;transform:none}}
+.intro-pg{position:fixed;inset:0;z-index:60;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ipaper);isolation:isolate;
+  padding:calc(64px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(34px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:radial-gradient(120% 75% at 50% 30%,var(--ig3) 0%,var(--ig2) 45%,var(--ig1) 100%)}
+.intro-pg::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.5;background:repeating-linear-gradient(-45deg,transparent 0 22px,rgba(0,0,0,.18) 22px 44px)}
+.stars{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.stars i{position:absolute;width:var(--s);height:var(--s);background:var(--gold2);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:twk 3.2s ease-in-out infinite}
+.emblem{position:relative;width:min(64vw,300px);aspect-ratio:1;margin:0 auto 18px;flex:none}
+.logo-big{position:relative;display:block;width:100%;height:100%;border-radius:50%;animation:emblemIn 1.1s cubic-bezier(.2,1.15,.3,1) both,glow 3.8s 1.3s ease-in-out infinite}
+.ring{position:absolute;border-radius:50%;pointer-events:none}
+.ring.r1{inset:-13px;background:conic-gradient(from 0deg,transparent 0 18%,var(--gold) 30%,transparent 42% 66%,var(--gold2) 80%,transparent 92%);-webkit-mask:radial-gradient(circle closest-side,transparent 93.5%,#000 94.5%);mask:radial-gradient(circle closest-side,transparent 93.5%,#000 94.5%);animation:mcspin 6s linear infinite}
+.ring.r2{inset:-26px;border:2px dashed rgba(216,180,90,.45);animation:mcspin 28s linear infinite reverse}
+.it{margin:6px 0 0;font-family:var(--font-display);font-weight:400;text-transform:uppercase;line-height:1.02;letter-spacing:.06em;font-size:clamp(2rem,9vw,3.4rem);text-shadow:0 3px 0 rgba(0,0,0,.45)}
+.itl{display:block}.itl:last-child{color:var(--gold2)}
+.ch{display:inline-block;opacity:0;animation:letterUp .6s cubic-bezier(.2,1.3,.4,1) both}
+.is{margin:14px 0 2px;font-family:var(--font-head);font-weight:700;letter-spacing:.2em;text-transform:uppercase;font-size:1rem;color:var(--gold);opacity:0;animation:rise .7s 1.5s both}
+.iq{margin:0 0 22px;font-style:italic;opacity:0;animation:rise .7s 1.7s both;color:rgba(241,238,221,.85)}
+.iacts{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.ibtn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:158px;min-height:50px;font-size:1.1rem;text-decoration:none;opacity:0;animation:rise .6s both}
+.ibtn.wa{background:#1d9a52;border-color:#1d9a52;color:#fff;animation-delay:1.9s}
+.ibtn.lg{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:#1b2a10;animation-delay:2.05s}
+.ibtn:hover{filter:brightness(1.1);transform:translateY(-2px)}
+.ilink{background:none;border:0;color:var(--ipaper);text-decoration:underline;text-underline-offset:4px;font:inherit;min-height:44px;padding:6px 10px;opacity:0;animation:rise .6s 2.3s both}
+.istripe{position:absolute;left:0;right:0;bottom:0;height:8px;background:repeating-linear-gradient(-45deg,var(--gold) 0 7px,#01411C 7px 14px)}
+.admin{position:absolute;top:8px;right:max(16px,env(safe-area-inset-right,0px));z-index:6;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 11px;background:rgba(0,0,0,.3);color:#fff;border:1px solid rgba(255,255,255,.6);font-family:var(--font-head);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase}
+.admin:hover{background:rgba(0,0,0,.5)}
+.intro-pg .admin{top:calc(10px + env(safe-area-inset-top,0px))}
+.mast .wrap{padding-top:26px}
+.mlogo{flex:none;position:relative;display:block;width:64px;height:64px;border-radius:50%;padding:0;border:0;background:none;cursor:pointer;overflow:hidden;box-shadow:0 0 0 2px var(--brass),0 3px 0 rgba(0,0,0,.35);animation:pop .8s cubic-bezier(.2,1.4,.4,1) both,glow 4.5s 1.4s ease-in-out infinite}
+.mlogo img{display:block;width:100%;height:100%;border-radius:50%}
+.mlogo::after{content:"";position:absolute;inset:0;border-radius:50%;background:linear-gradient(110deg,transparent 38%,rgba(255,255,255,.6) 50%,transparent 62%);background-size:260% 100%;background-position:160% 0;animation:shine 5.5s 2s ease-in-out infinite}
+.seal{display:block;width:108px;height:108px;border-radius:50%;margin:0 auto 12px;animation:emblemIn .9s cubic-bezier(.2,1.2,.3,1) both,glow 4s 1.1s ease-in-out infinite}
+.stamp{display:block;width:84px;height:84px;border-radius:50%;margin:18px auto 0;animation:stampIn .85s .35s cubic-bezier(.2,1.2,.4,1) both;box-shadow:0 0 0 3px var(--brass)}
+.blogo{width:26px;height:26px;border-radius:50%;vertical-align:middle;margin-right:8px;box-shadow:0 0 0 1px var(--brass)}
+#app>.wm{animation:mcspin 90s linear infinite}
+.wm{position:fixed;right:-60px;bottom:-60px;width:min(60vw,300px);height:auto;opacity:.07;pointer-events:none;z-index:0;animation:mcspin 90s linear infinite}
+.logincard{text-align:center}.logincard .codein{display:block;width:100%;margin:8px 0;text-align:left;flex:none}
+.logincard .lockacts{justify-content:center}
+.admincard{max-width:560px}
+.admtab{width:100%;border-collapse:collapse;font-size:.92rem}.admtab th,.admtab td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line,#c9c5b3)}
+@media (max-width:420px){.ibtn{min-width:140px}.mast .brand{gap:10px}}
+@media (prefers-reduced-motion:reduce){.logo-big,.ring,.ch,.is,.iq,.ibtn,.ilink,.stars i,.mlogo,.mlogo::after,.seal,.stamp,.wm,#app>.wm{animation:none!important}.ch,.is,.iq,.ibtn,.ilink{opacity:1}}
 
-/* Resume banner and footer (web build) */
-.resume{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--panel);border:2px solid var(--brass);padding:14px 16px;margin:16px 0}
-.resume b{display:block;font-family:var(--font-head);font-size:1.15rem;text-transform:uppercase;letter-spacing:.04em}
-.resume .nav{margin:0}
-.sitefoot{text-align:center;margin:28px 0 20px;opacity:.85}
-.sitefoot a{color:inherit}
+.iprivacy{font-size:.85rem;opacity:.8;min-height:36px;display:inline-block;text-decoration:underline}
